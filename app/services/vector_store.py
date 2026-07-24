@@ -7,6 +7,7 @@ JSON file is plenty fast.
 Persists to a single JSON file so re-ingesting isn't required every
 server restart.
 """
+import asyncio
 import json
 import math
 import os
@@ -15,6 +16,7 @@ from app.services.embeddings import embed_text
 
 _STORE_PATH = settings.vector_store_path
 _store: list[dict] = []  # [{"id":..., "text":..., "metadata":..., "embedding":[...]}]
+_EMBED_CONCURRENCY = 8  # parallel API calls at once — enough to be fast without tripping rate limits
 
 
 def _load():
@@ -47,8 +49,16 @@ def _cosine(a: list[float], b: list[float]) -> float:
 async def add_documents(chunks: list[str], ids: list[str], metadatas: list[dict] | None = None) -> int:
     """Embed and store chunks. metadatas e.g. [{"source": "handbook.pdf", "section": "SIWES"}]"""
     metadatas = metadatas or [{} for _ in chunks]
-    for chunk, doc_id, meta in zip(chunks, ids, metadatas):
-        embedding = await embed_text(chunk)
+
+    semaphore = asyncio.Semaphore(_EMBED_CONCURRENCY)
+
+    async def _embed_one(chunk: str) -> list[float]:
+        async with semaphore:
+            return await embed_text(chunk)
+
+    embeddings = await asyncio.gather(*(_embed_one(c) for c in chunks))
+
+    for chunk, doc_id, meta, embedding in zip(chunks, ids, metadatas, embeddings):
         _store.append({"id": doc_id, "text": chunk, "metadata": meta, "embedding": embedding})
     _save()
     return len(chunks)
