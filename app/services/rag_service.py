@@ -10,6 +10,7 @@ TODO (build day):
 Uses a pure-Python vector store (app/services/vector_store.py) with
 Google AI Studio embeddings — no compiled dependencies, nothing to build.
 """
+import re
 from app.services.llm_client import llm_client
 from app.services import vector_store
 
@@ -39,6 +40,15 @@ async def answer_query(query: str, top_k: int = 4, history: list[dict] | None = 
     history on every call. Retrieval is still done fresh each turn using
     only the latest query (not the full history) to keep it simple.
     """
+    # 1. Catch simple greetings instantly (bypass RAG and LLM completely)
+    clean_query = re.sub(r'[^\w\s]', '', query.strip().lower())
+    if clean_query in ["hi", "hello", "hey", "good morning", "good afternoon", "good evening", "greetings"]:
+        return {
+            "answer": "Hello! I am your LASU Campus Assistant. How can I help you with your clearance, SIWES, or other academic questions today?",
+            "sources": []
+        }
+
+    # 2. For everything else, do the normal RAG process
     hits = await retrieve(query, top_k=top_k)
     context = "\n\n---\n\n".join(h["text"] for h in hits) if hits else "(no matching context found)"
 
