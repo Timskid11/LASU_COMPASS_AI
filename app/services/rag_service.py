@@ -17,25 +17,20 @@ SYSTEM_PROMPT = """You are the LASU Campus Assistant. Answer ONLY using the
 provided context from official LASU documents (handbook, academic calendar,
 SIWES guidelines, clearance process, etc). If the answer isn't in the
 context, say you don't have that information and suggest where the student
-might check (e.g. the relevant office). Be concise and specific.
+might check (e.g. the relevant office).
 
-Respond with ONLY the final answer as plain, direct sentences. Do not show
-your reasoning, planning, options considered, or step-by-step thinking —
-students should see a clean answer, not a scratchpad.
-
-TODO: refine this prompt during the build — add tone/format guidance,
-citation style (e.g. "per the Student Handbook §3.2"), etc.
+CRITICAL INSTRUCTION:
+Do NOT output your internal thought process, reasoning steps, or evaluation of the context.
+Do NOT repeat the user's input or list the context provided.
+Provide ONLY the final, natural, conversational response directly to the user as plain, direct sentences.
 """
-
 
 async def add_documents(chunks: list[str], ids: list[str], metadatas: list[dict] | None = None) -> int:
     """Embed and store chunks. metadatas e.g. [{"source": "handbook.pdf", "section": "SIWES"}]"""
     return await vector_store.add_documents(chunks, ids, metadatas)
 
-
 async def retrieve(query: str, top_k: int = 4) -> list[dict]:
     return await vector_store.retrieve(query, top_k=top_k)
-
 
 async def answer_query(query: str, top_k: int = 4, history: list[dict] | None = None) -> dict:
     """

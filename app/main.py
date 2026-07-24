@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from app.routers import chat, letters, ingest, health
 
 app = FastAPI(
@@ -16,11 +17,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount the app/data directory so PDFs can be accessed via URL by the frontend
+app.mount("/files", StaticFiles(directory="app/data"), name="files")
+
 app.include_router(health.router)
 app.include_router(chat.router)
 app.include_router(letters.router)
 app.include_router(ingest.router)
-
 
 @app.get("/")
 def root():
