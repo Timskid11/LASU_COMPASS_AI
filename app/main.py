@@ -1,30 +1,30 @@
+import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from app.routers import chat, letters, ingest, health
 
-app = FastAPI(
-    title="LASU Campus Assistant API",
-    description="Backend for GDGoC LASU 'Build with Gemma' hackathon",
-    version="0.1.0",
-)
+# Import your existing routers
+from app.routers import chat, letters 
 
-# TODO (build day): lock this down to your actual frontend origin
+app = FastAPI(title="LASU Compass AI")
+
+# Configure CORS so the frontend can communicate with the backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"], 
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Mount the app/data directory so PDFs can be accessed via URL by the frontend
-app.mount("/files", StaticFiles(directory="app/data"), name="files")
+# Mount the static files directory to serve the LASU PDFs
+if os.path.exists("app/data"):
+    app.mount("/documents", StaticFiles(directory="app/data"), name="documents")
 
-app.include_router(health.router)
+# Include your endpoint routers
 app.include_router(chat.router)
 app.include_router(letters.router)
-app.include_router(ingest.router)
 
 @app.get("/")
 def root():
-    return {"message": "LASU Campus Assistant API", "docs": "/docs"}
+    return {"status": "LASU Compass AI Backend is running"}
