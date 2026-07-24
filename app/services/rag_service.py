@@ -13,16 +13,13 @@ Google AI Studio embeddings — no compiled dependencies, nothing to build.
 from app.services.llm_client import llm_client
 from app.services import vector_store
 
-SYSTEM_PROMPT = """You are the LASU Campus Assistant. Answer ONLY using the
-provided context from official LASU documents (handbook, academic calendar,
-SIWES guidelines, clearance process, etc). If the answer isn't in the
-context, say you don't have that information and suggest where the student
-might check (e.g. the relevant office).
+SYSTEM_PROMPT = """You are the LASU Campus Assistant.
 
-CRITICAL INSTRUCTION:
-Do NOT output your internal thought process, reasoning steps, or evaluation of the context.
-Do NOT repeat the user's input or list the context provided.
-Provide ONLY the final, natural, conversational response directly to the user as plain, direct sentences.
+RULES:
+1. GREETINGS: If the user input is a simple greeting (e.g., "hi", "hello", "good morning"), completely ignore the context. Respond warmly and ask how you can help with LASU-related matters today.
+2. QUESTIONS: For all other questions, answer ONLY using the provided Context.
+3. MISSING INFO: If the answer is not in the Context, do not guess. Say exactly: "I don't have that information. Please check with the relevant LASU office or SIWES unit."
+4. NO SCRATCHPAD: NEVER output your internal thoughts, reasoning steps, or bulleted self-evaluations. Provide ONLY the final conversational answer.
 """
 
 async def add_documents(chunks: list[str], ids: list[str], metadatas: list[dict] | None = None) -> int:
@@ -48,15 +45,14 @@ async def answer_query(query: str, top_k: int = 4, history: list[dict] | None = 
     turn_prompt = f"""Context from LASU documents:
 {context}
 
-Student question: {query}
-
-Answer the question using only the context above."""
+Student input: {query}"""
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT}]
     messages.extend(history or [])
     messages.append({"role": "user", "content": turn_prompt})
 
     answer = await llm_client.chat(messages=messages)
+    
     return {
         "answer": answer,
         "sources": [h["metadata"] for h in hits],
