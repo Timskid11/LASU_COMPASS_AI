@@ -1,10 +1,10 @@
 import os
 import httpx
 
-API_KEY = os.getenv("GEMMA_API_KEY", "")
+API_KEY = os.getenv("GEMMA_API_KEY", "").strip()
 raw_url = os.getenv("GEMMA_API_URL", "").strip()
 
-# Fallback to OpenRouter if GEMMA_API_URL is empty or invalid
+# Sanitize URL with fallback to OpenRouter
 if not raw_url:
     API_URL = "https://openrouter.ai/api/v1/chat/completions"
 elif not raw_url.startswith(("http://", "https://")):
@@ -12,7 +12,7 @@ elif not raw_url.startswith(("http://", "https://")):
 else:
     API_URL = raw_url
 
-MODEL_NAME = os.getenv("GEMMA_MODEL", "google/gemma-2-9b-it:free")
+MODEL_NAME = os.getenv("GEMMA_MODEL", "google/gemma-2-9b-it:free").strip()
 
 
 class LLMClient:
@@ -21,11 +21,14 @@ class LLMClient:
         Sends a RAG payload to an OpenAI-compatible endpoint (like OpenRouter).
         """
         if not API_KEY:
-            return "Error: GEMMA_API_KEY is not configured on the server."
+            print("ERROR: GEMMA_API_KEY is missing from environment variables.")
+            return "Server configuration error: GEMMA_API_KEY is not set."
 
         headers = {
             "Authorization": f"Bearer {API_KEY}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://lasu-compass-ai.onrender.com",  # Required by OpenRouter for free tier
+            "X-Title": "LASU Compass AI",
         }
         
         payload = {
@@ -34,11 +37,21 @@ class LLMClient:
             "temperature": 0.1
         }
 
-        async with httpx.AsyncClient() as client:
-            response = await client.post(API_URL, headers=headers, json=payload, timeout=45.0)
-            response.raise_for_status()
-            data = response.json()
-            return data["choices"][0]["message"]["content"]
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(API_URL, headers=headers, json=payload, timeout=45.0)
+                
+                # If OpenRouter returns an error code, log the exact body to Render logs
+                if response.status_code != 200:
+                    print(f"LLM API Error ({response.status_code}): {response.text}")
+                    return f"The LLM provider returned an error ({response.status_code}). Please check server logs."
+
+                data = response.json()
+                return data["choices"][0]["message"]["content"]
+
+        except Exception as e:
+            print(f"LLM Client Exception: {e}")
+            return "An internal connection error occurred while contacting the AI service."
 
 
 llm_client = LLMClient()
